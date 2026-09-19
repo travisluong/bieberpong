@@ -117,10 +117,6 @@ canvas {
     text-transform: uppercase;
 }
 
-#stage #saving {
-    text-align: center;
-}
-
 #stage #submit input[type=text] {
     font-family: 'brandon_grotesquebold';
     font-size: 24px;
@@ -149,8 +145,36 @@ canvas {
     text-align: center;
 }
 
-#play-again-button a {
+#play-again-button button,
+#local-scores-link button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #00ff00;
+    font: inherit;
+    text-transform: inherit;
     cursor: pointer;
+}
+
+#play-again-button button:hover,
+#local-scores-link button:hover {
+    color: #ffffff;
+}
+
+#local-scores-link {
+    clear: both;
+    padding-top: 40px;
+    text-align: center;
+}
+
+.score-notice {
+    text-align: center;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.storage-warning {
+    color: #ffff00;
 }
 
 body {
@@ -213,12 +237,6 @@ a:hover {
     margin-bottom: 150px;
 }
 
-.twitter-share-button {
-    position: relative !important;
-    top: 6px;
-    right: 50px;
-}
-
 #footer {
     height: 2.5%;
     background: #ff00ff;
@@ -277,19 +295,6 @@ a:hover {
 #high-scores #games-played {
     text-align: center;
     margin: 30px;
-}
-
-#scores {
-    width: 600px;
-    border: 1px solid #FFF;
-}
-
-#scores table {
-    width: 100%;
-}
-
-#scores-nav {
-    text-align: center;
 }
 
 @font-face {

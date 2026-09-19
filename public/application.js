@@ -41,31 +41,89 @@ bieberHeadImage.onload = function () {
 }
 bieberHeadImage.src = "assets/images/BieberHead-natural.png"
 
-var renderHighscores = function (data) {
+// Keep a session copy so the game still works when browser storage is blocked or full.
+var highscoreStore = (function () {
+  var key = 'bieberpong.highscores.v1';
+  var scores = [];
+  var storageAvailable = true;
+
+  var validRecord = function (record) {
+    return record && typeof record.name === 'string' &&
+      record.name.trim().length > 0 && record.name.trim().length <= 11 &&
+      (record.country === 'USA' || record.country === 'Canada') &&
+      Number.isSafeInteger(record.score) && record.score >= 0 &&
+      Number.isSafeInteger(record.createdAt) && record.createdAt >= 0;
+  };
+
+  var read = function () {
+    if (storageAvailable) {
+      var stored;
+      try {
+        stored = window.localStorage.getItem(key);
+      } catch (error) {
+        storageAvailable = false;
+      }
+      if (storageAvailable) {
+        try {
+          var parsed = JSON.parse(stored);
+          scores = Array.isArray(parsed) ? parsed.filter(validRecord) : [];
+        } catch (error) {
+          scores = [];
+        }
+      }
+    }
+    return scores.slice().sort(function (a, b) {
+      return b.score - a.score || b.createdAt - a.createdAt;
+    });
+  };
+
+  return {
+    read: read,
+    save: function (name, score, country) {
+      read();
+      scores.unshift({ name: name, score: score, country: country, createdAt: Date.now() });
+      if (storageAvailable) {
+        try {
+          window.localStorage.setItem(key, JSON.stringify(scores));
+        } catch (error) {
+          storageAvailable = false;
+        }
+      }
+    },
+    isPersistent: function () { return storageAvailable; }
+  };
+})();
+
+var renderHighscores = function () {
+  var data = highscoreStore.read();
   var stage = $('#stage');
   stage.empty();
   stage.removeClass('game-on');
-  var highScoresDiv = $('#high-scores');
+  var highScoresDiv = $('#high-scores').empty();
+  highScoresDiv.append($('<h1>').text('High Scores'));
+  if (!highscoreStore.isPersistent()) {
+    highScoresDiv.append($('<p class="score-notice storage-warning" role="status">').text('Scores could not be saved permanently. They are available only until this page is closed or reloaded.'));
+  }
   highScoresDiv.append('<div id="games-played">Games Played: ' + data.length + '</div>')
+  if (data.length === 0) {
+    highScoresDiv.append($('<p class="score-notice">').text('No scores yet. Play a game and submit your score!'));
+  }
   var table = $('<table>');
   var thead = '<thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Score</th></tr></thead>';
   var tbody = $('<tbody>');
   table.append(thead);
   table.append(tbody);
   highScoresDiv.append(table);
-  html = ""
   for (var i = 0; i < data.length; i++) {
     var d = data[i];
-    rank = i + 1;
-    html += '<tr>';
-    html += '<td>' + rank + '</td>'
-    html += '<td>' + d.name + '</td>';
-    html += '<td>' + d.country + '</td>';
-    html += '<td>' + d.score + '</td>';
-    html += '</tr>';
+    var row = $('<tr>');
+    row.append($('<td>').text(i + 1));
+    row.append($('<td>').text(d.name));
+    row.append($('<td>').text(d.country));
+    row.append($('<td>').text(d.score));
+    tbody.append(row);
   }
-  tbody.append(html);
-  var playButton = $("<div id='play-again-button'><a>Replay</a></div>")
+  var playButton = $("<div id='play-again-button'><button type='button'>Replay</button></div>")
   table.after(playButton)
   playButton.on('click', firstScreen)
 }
@@ -85,8 +143,8 @@ var endGame = function (score, country) {
   stage.append('<div id="game-over-score">Score: ' + score + '</div>');
   var nameDiv = $('<div id="game-over-name">');
   var form = $('<form id="submit">');
-  form.append($('<label>').append('Name: '))
-  name_input = $('<input id="name" type="text">');
+  form.append($('<label for="name">').append('Name: '))
+  var name_input = $('<input id="name" type="text">');
   form.append(name_input);
   form.append($('<input type="submit" value="Submit">'));
   nameDiv.append(form);
@@ -94,8 +152,8 @@ var endGame = function (score, country) {
   name_input.focus();
   $('#submit').on("submit", function (e) {
     e.preventDefault();
-    var name = $('#name').val();
-    if (name == undefined || name == "") {
+    var name = $('#name').val().trim();
+    if (name === "") {
       alert("Name can't be blank.")
       return;
     }
@@ -103,22 +161,8 @@ var endGame = function (score, country) {
       alert("Name must be less than 12 characters.")
       return;
     }
-    var data = {
-      name: name,
-      score: score,
-      country: country
-    }
-    $.ajax({
-      dataType: 'json',
-      type: 'POST',
-      url: 'scores',
-      data: data
-    }).done(function (data) {
-      renderHighscores(data);
-      // window.location = "/scores"
-    }).fail(function (jqXHR, textStatus) {
-      alert("Request failed: " + textStatus);
-    })
+    highscoreStore.save(name, score, country);
+    renderHighscores();
   })
 }
 
@@ -457,6 +501,9 @@ var firstScreen = function () {
   stage.append("<div id='slogan'>America wants its rematch. Loser keeps Bieber for <span>real</span>.</div>")
   stage.append("<div id='choose-team'>Choose your team</div>")
   stage.append("<div id='team-selection'><div id='usa'><a></a></div><div id='vs'>VS</div><div id='canada'><a></a></div></div>")
+  var scoresLink = $("<div id='local-scores-link'><button type='button'>High Scores</button></div>");
+  stage.append(scoresLink);
+  scoresLink.find('button').on('click', renderHighscores);
   var usa = $('#usa a')
   var canada = $('#canada a')
   usa.on('click', function () {
@@ -474,6 +521,7 @@ var firstScreen = function () {
 }
 
 $(document).ready(function () {
+  highscoreStore.read();
   stage = $('#stage');
   if (stage.length > 0) {
     firstScreen();
